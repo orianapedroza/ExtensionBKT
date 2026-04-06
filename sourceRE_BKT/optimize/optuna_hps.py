@@ -35,7 +35,8 @@ def optimize_hyperparameters(model_base: ModelBase,
         if col not in test_data.columns:
             raise ValueError(f"test_data debe tener la columna '{col}'")
 
-    clusters = test_data[model_base.cluster_col].unique()
+    #clusters = test_data[model_base.cluster_col].unique()
+    clusters = sorted(test_data[model_base.cluster_col].unique())
     print(f"\n[Optuna] Iniciando optimización para clusters: {clusters}")
 
     for cl in clusters:
