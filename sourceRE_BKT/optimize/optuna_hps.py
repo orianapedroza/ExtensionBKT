@@ -11,7 +11,8 @@ from utils.metrics import compute_metrics
 def optimize_hyperparameters(model_base: ModelBase, 
                              test_data: pd.DataFrame, 
                              n_trials: int = 100, 
-                             metric_to_optimize: str = 'AUC') -> None:
+                             metric_to_optimize: str = 'AUC', 
+                             seed: int = 42) -> None:
     """
     Optimiza emotion_weight, neutral_point y threshold para cada cluster presente en el conjunto de datos del test.
     Los valores óptimos se asignan directamente a los modelos de cada cluster en model_base.
@@ -112,7 +113,9 @@ def optimize_hyperparameters(model_base: ModelBase,
             return auc # Default
 
         # Ejecutar el estudio de Optuna para este cluster
-        study = optuna.create_study(direction='maximize')
+        sampler = optuna.samplers.TPESampler(seed=seed)
+
+        study = optuna.create_study(direction='maximize', sampler=sampler)
         study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
 
         # Asignar los mejores valores encontrados al ModelBase
