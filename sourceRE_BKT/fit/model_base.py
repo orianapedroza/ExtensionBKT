@@ -50,7 +50,6 @@ class ModelBase:
                 # Preparar secuencias por usuario
                 observations_list = self._prepare_sequences(skill_cluster_data)
 
-                # Solo entrenar si hay al menos una secuencia
                 if len(observations_list) == 0:
                     continue
 

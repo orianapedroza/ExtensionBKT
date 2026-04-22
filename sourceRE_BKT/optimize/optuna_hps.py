@@ -4,7 +4,6 @@ import pandas as pd
 from typing import Optional, Dict
 from sklearn.metrics import roc_auc_score, recall_score, precision_score, confusion_matrix
 
-# Imports internos de tu biblioteca
 from fit.model_base import ModelBase
 from utils.metrics import compute_metrics
 
@@ -29,7 +28,7 @@ def optimize_hyperparameters(model_base: ModelBase,
         Métrica a maximizar: 'AUC', 'Sensitivity', 'Specificity', 'Precision', 'geometric_mean'.
     """
     
-    # 1. Validación de columnas necesarias
+    # Validación de columnas necesarias
     required_cols = ['skill', 'user_id', 'correct', 'concentrating', model_base.cluster_col]
     for col in required_cols:
         if col not in test_data.columns:
@@ -46,7 +45,7 @@ def optimize_hyperparameters(model_base: ModelBase,
         cluster_val = test_data[test_data[model_base.cluster_col] == cl].copy()
         skills_in_cluster = cluster_val['skill'].unique()
         
-        # Recuperamos solo los modelos que pertenecen a este cluster
+        # Recuper solo los modelos que pertenecen a este cluster
         cluster_models = {}
         for skill in skills_in_cluster:
             key = (skill, cl)

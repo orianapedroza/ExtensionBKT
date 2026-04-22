@@ -31,7 +31,6 @@ class StudentClustered:
         return pd.DataFrame(features)
 
     def run_clustering(self, feature_df):
-        # Lógica de Imputer -> Scaler -> KMeans que ya tienes
         cols = [c for c in feature_df.columns if c != 'user_id']
         X = SimpleImputer(strategy='mean').fit_transform(feature_df[cols])
         X_scaled = StandardScaler().fit_transform(X)
@@ -45,7 +44,7 @@ class StudentClustered:
         user_cluster = dict(zip(feature_df['user_id'], feature_df['cluster']))
         df_original['cluster'] = df_original['user_id'].map(user_cluster)
         
-        # 2. Limpieza de nulos (estudiantes con < 5 interacciones)
+        # 2. Limpieza de nulos 
         df_clean = df_original.dropna(subset=['cluster']).copy()
         df_clean['cluster'] = df_clean['cluster'].astype(int)
         
