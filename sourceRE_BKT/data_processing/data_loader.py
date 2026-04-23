@@ -64,9 +64,18 @@ class DataLoader:
         return self._base_clean(df, 'start_time', 'end_time')
 
     def _base_clean(self, df, start_col, end_col):
-        """Lógica de limpieza común (tiempos, nulos y tipos)."""
+        """Lógica de limpieza: intercambia fechas inconsistentes y ordena cronológicamente."""
         df[start_col] = pd.to_datetime(df[start_col], format='mixed')
         df[end_col] = pd.to_datetime(df[end_col], format='mixed')
-        #df = df[df[end_col] >= df[start_col]].copy()
+    
+        # Si start_time > end_time, los intercambiamos
+        mask = df[start_col] > df[end_col]
+        if mask.any():
+            print(f"Se intercambiaron {mask.sum()} registros con fechas invertidas.")
+            df.loc[mask, [start_col, end_col]] = df.loc[mask, [end_col, start_col]].values # Se usa.values para evitar conflictos de índices durante el intercambio
+
+        # Se ordena por habilidad, luego por usuario y finalmente por tiempo de inicio
+        df = df.sort_values(by=['skill', 'user_id', start_col])
         df['correct'] = df['correct'].astype(int)
+        
         return df.dropna(subset=['skill', 'user_id', 'concentrating'])

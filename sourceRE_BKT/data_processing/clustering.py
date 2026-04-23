@@ -12,12 +12,36 @@ class StudentClustered:
         self.n_clusters = n_clusters
         self.emotions = ['frustrated', 'confused', 'concentrating', 'bored']
 
-    def extract_features(self, df):
+    def extract_features(self, df, strategy='global'):
+        """
+        Extrae características según dos estrategias:
+        - 'global': Filtra estudiantes con al menos 6 interacciones totales.
+        - 'sampled': Filtra las primeras 6 interacciones de solo 25 estudiantes por habilidad.
+        """
         warnings.filterwarnings('ignore', category=RuntimeWarning)
+
+        # Filtrado según estrategia
+        if strategy == 'global':
+            # Caso 1: Estudiantes con al menos 6 interacciones
+            counts = df.groupby('user_id').size()
+            valid_users = counts[counts >= 6].index
+            filtered_df = df[df['user_id'].isin(valid_users)]
+        elif strategy == 'sampled':
+            # Caso 2: 25 estudiantes por habilidad, solo sus primeras 6 interacciones
+            def sample_logic(skill_group):
+                # Obtener 25 usuarios únicos de esta habilidad
+                users = skill_group['user_id'].unique()
+                selected_users = users[:25] # O usar np.random.choice para aleatoriedad
+                
+                # De esos usuarios, tomar solo sus primeras 6 interacciones
+                subset = skill_group[skill_group['user_id'].isin(selected_users)]
+                return subset.groupby('user_id').head(6)
+                
+            filtered_df = df.groupby('skill', group_keys=False).apply(sample_logic)
+
+        # Calculo de características
         features = []
-        for user, data in df.groupby('user_id'):
-            if len(data) < 5: continue
-            
+        for user, data in filtered_df.groupby('user_id'):
             row = {'user_id': user, 'mean_correct': data['correct'].mean()}
             for emo in self.emotions:
                 row[f'mean_{emo}'] = data[emo].mean()
@@ -28,6 +52,7 @@ class StudentClustered:
                 except:
                     row[f'corr_{emo}'] = np.nan
             features.append(row)
+            
         return pd.DataFrame(features)
 
     def run_clustering(self, feature_df):
