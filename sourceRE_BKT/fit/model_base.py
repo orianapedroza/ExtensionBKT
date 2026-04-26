@@ -1,19 +1,20 @@
 import pandas as pd
 import numpy as np
 from typing import List, Tuple, Dict, Union, Any, Optional
-#from models.re_bkt import REBKT
 from utils.metrics import compute_metrics, plot_confusion_matrix
 
 class ModelBase:
     """
     API para gestionar modelos RE-BKT particionados por clústeres.
-    Permite entrenar, predecir y evaluar masivamente.
+    Permite entrenar, predecir y evaluar para distintas versiones del modelo.
     """
 
-    def __init__(self, seed: int = 42, cluster_col: str = 'cluster'):
+    def __init__(self, model_class, seed: int = 42, cluster_col: str = 'cluster'):
+        self.model_class = model_class #versión del modelo
         self.seed = seed
         self.cluster_col = cluster_col
         self.models = {}  # clave: (skill_name, cluster) -> REBKT
+        self.cluster_configs = {} #hiperparámetros por clúster
 
     def _prepare_sequences(self, skill_data: pd.DataFrame) -> List[List[Tuple[int, float]]]:
         """Convierte los datos de una habilidad (y opcionalmente un clúster) en una lista de secuencias
@@ -54,7 +55,10 @@ class ModelBase:
                     continue
 
                 #print(f"\n--- Entrenando para {skill_name} / clúster {cl} ---")
-                rebkt = REBKT(skill_name=f"{skill_name}_cl{cl}", seed=self.seed)
+                #rebkt = REBKT(skill_name=f"{skill_name}_cl{cl}", seed=self.seed)
+                
+                # CREAR INSTANCIA DINÁMICA
+                rebkt = self.model_class(skill_name=f"{skill_name}_cl{cl}", seed=self.seed)
 
                 #Revisar si ya se tienen los hiperparametros optimizados
                 if cl in self.cluster_configs:
@@ -90,10 +94,6 @@ class ModelBase:
             if not mask.any():
                 continue
 
-            #config = cluster_config.get(cl, {'emotion_weight': 1.0, 'neutral_point': 0.5})
-            #ew = config.get('emotion_weight', 1.0)
-            #np_val = config.get('neutral_point', 0.5)
-
             skill_cluster_data = df_sorted[mask]
             sequences = self._prepare_sequences(skill_cluster_data)
 
@@ -118,7 +118,8 @@ class ModelBase:
         return df_sorted.drop(columns=['_original_index'])
     
     def evaluate(self, data: pd.DataFrame, by_cluster: bool = False, verbose: bool = False) -> dict:
-        
+        """Evalúa las predicciones generadas frente a los valores reales."""
+
         if 'prediction' not in data.columns:
             raise ValueError("El DataFrame debe contener la columna 'prediction' generada por predict()")
 
@@ -221,28 +222,27 @@ class ModelBase:
                 raise ValueError("El archivo CSV no tiene el formato correcto de parámetros RE-BKT.")
 
             self.models = {}
+            
+            # Lista de todos los posibles parámetros (2x2 y 2x4)
+            params_to_load = ['P_L0', 'P_T', 'P_IC0', 'P_INC0', 'P_CC0', 'P_CNC0', 
+                              'P_IC1', 'P_INC1', 'P_CC1', 'P_CNC1']
+
             for _, row in df.iterrows():
                 skill_name = str(row['skill'])
                 cluster_id = row['cluster']
 
-                # Crear instancia de REBKT
-                rebkt = REBKT(skill_name=f"{skill_name}_cl{cluster_id}", seed=self.seed)
+                # INSTANCIACIÓN DINÁMICA
+                rebkt = self.model_class(skill_name=f"{skill_name}_cl{cluster_id}", seed=self.seed)
 
-                # Reconstruir el diccionario de parámetros
-                rebkt.params = {
-                    'P_L0': float(row['P_L0']),
-                    'P_T':  float(row['P_T']),
-                    'P_IC0': float(row['P_IC0']),
-                    'P_CC0': float(row['P_CC0']),
-                    'P_IC1': float(row['P_IC1']),
-                    'P_CC1': float(row['P_CC1'])
-                }
+                rebkt.params = {}
+                for p in params_to_load:
+                    if p in row and not pd.isna(row[p]):
+                        rebkt.params[p] = float(row[p])
+                
                 rebkt.trained = True
-
-                # Guardar en el diccionario de ModelBase
                 self.models[(skill_name, cluster_id)] = rebkt
 
-            print(f"✓ Se cargaron satisfactoriamente {len(self.models)} modelos desde {source_name}")
+            print(f"Se cargaron satisfactoriamente {len(self.models)} modelos desde {source_name}")
 
         except FileNotFoundError:
             print(f"Error: No se encontró el archivo en la ruta {params_source}")
