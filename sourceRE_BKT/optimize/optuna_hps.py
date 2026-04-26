@@ -4,39 +4,29 @@ import pandas as pd
 from typing import Optional, Dict
 from sklearn.metrics import roc_auc_score, recall_score, precision_score, confusion_matrix
 
-from fit.model_base import ModelBase
-from utils.metrics import compute_metrics
+#from fit.model_base import ModelBase
+#from utils.metrics import compute_metrics
 
 def optimize_hyperparameters(model_base: ModelBase, 
                              test_data: pd.DataFrame, 
                              n_trials: int = 100, 
                              metric_to_optimize: str = 'AUC', 
+                             optimize_logits: bool = True, 
                              seed: int = 42) -> None:
     """
-    Optimiza emotion_weight, neutral_point y threshold para cada cluster presente en el conjunto de datos del test.
-    Los valores óptimos se asignan directamente a los modelos de cada cluster en model_base.
-
-    Parámetros:
-    ----------
-    model_base : ModelBase
-        Modelo base ya entrenado (con modelos REBKT para cada skill y cluster).
-    test_data : pd.DataFrame
-        DataFrame de validación con columnas: skill, user_id, correct, concentrating, cluster.
-    n_trials : int
-        Número de intentos de Optuna por cluster.
-    metric_to_optimize : str
-        Métrica a maximizar: 'AUC', 'Sensitivity', 'Specificity', 'Precision', 'geometric_mean'.
+    Optimiza hiperparámetros para cada cluster.
+    Si optimize_logits es True (Modelos 2 y 3), busca emotion_weight y neutral_point.
+    Si es False (Modelo 1), solo optimiza el umbral de decisión (threshold).
     """
-    
+
     # Validación de columnas necesarias
     required_cols = ['skill', 'user_id', 'correct', 'concentrating', model_base.cluster_col]
     for col in required_cols:
         if col not in test_data.columns:
             raise ValueError(f"test_data debe tener la columna '{col}'")
 
-    #clusters = test_data[model_base.cluster_col].unique()
     clusters = sorted(test_data[model_base.cluster_col].unique())
-    print(f"\n[Optuna] Iniciando optimización para clusters: {clusters}")
+    print(f"\n[Optuna] Iniciando optimización para clusters: {clusters} | Logits: {optimize_logits}")
 
     for cl in clusters:
         print(f"\n>>> Optimizando Cluster: {cl}")
@@ -51,23 +41,25 @@ def optimize_hyperparameters(model_base: ModelBase,
             key = (skill, cl)
             if key in model_base.models:
                 cluster_models[skill] = model_base.models[key]
-            else:
-                print(f"Advertencia: No hay modelo para skill '{skill}' en cluster {cl}. Se omitirá en la optimización.")
                 
         if not cluster_models:
-            print(f"No hay modelos entrenados para el cluster {cl}. Saltando...")
             continue
 
         # Función objetivo para Optuna
         def objective(trial):
-            # Sugerir hiperparámetros para este intento (trial)
-            ew = trial.suggest_float('emotion_weight', 0.5, 3.0)
-            np_val = trial.suggest_float('neutral_point', 0.0, 1.0)
+            # Sugerir hiperparámetros condicionalmente
+            if optimize_logits:
+                ew = trial.suggest_float('emotion_weight', 0.5, 3.0)
+                np_val = trial.suggest_float('neutral_point', 0.0, 1.0)
+            else:
+                ew = 1.0
+                np_val = 0.5
+
             thr = trial.suggest_float('threshold', 0.0, 1.0)
 
             all_y_true = []
             all_y_pred = []
-
+            
             # Evaluar todos los modelos de este cluster con los parámetros sugeridos
             for skill, model in cluster_models.items():
                 skill_data = cluster_val[cluster_val['skill'] == skill]
@@ -77,13 +69,17 @@ def optimize_hyperparameters(model_base: ModelBase,
                 sequences = model_base._prepare_sequences(skill_data)
                 if len(sequences) == 0: continue
 
-                # Predecir con los hiperparámetros temporalmente
-                preds, actuals = model.predict(sequences, emotion_weight=ew, neutral_point=np_val)
+                # Predecir temporalmente según el modelo
+                if optimize_logits:
+                    preds, actuals = model.predict(sequences, emotion_weight=ew, neutral_point=np_val)
+                else:
+                    # El Modelo con emocion interna no recibe esos argumentos
+                    preds, actuals = model.predict(sequences) 
+                
                 all_y_pred.extend(preds)
                 all_y_true.extend(actuals)
 
-            if len(all_y_true) == 0:
-                return 0.0  # Sin datos, métrica nula
+            if len(all_y_true) == 0: return 0.0
 
             # Cálculo de métricas para Optuna
             y_true_arr = np.array(all_y_true)
@@ -107,31 +103,24 @@ def optimize_hyperparameters(model_base: ModelBase,
             if metric_to_optimize == 'Sensitivity': return sens
             if metric_to_optimize == 'Specificity': return spec
             if metric_to_optimize == 'Precision': return prec
-            if metric_to_optimize == 'geometric_mean':
-                return (auc * sens * spec) ** (1/3) # Media geométrica de AUC, sensibilidad y especificidad
-            
-            return auc # Default
+            if metric_to_optimize == 'geometric_mean': return (auc * sens * spec) ** (1/3) # Media geométrica de AUC, sensibilidad y especificidad
+            return auc
 
         # Ejecutar el estudio de Optuna para este cluster
         sampler = optuna.samplers.TPESampler(seed=seed)
-
         study = optuna.create_study(direction='maximize', sampler=sampler)
         study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
 
-        # Asignar los mejores valores encontrados al ModelBase
+        #Asignar los mejores valores encontrados al ModelBase
         best_trial = study.best_trial
         best_ew = best_trial.params['emotion_weight']
         best_np = best_trial.params['neutral_point']
         best_thr = best_trial.params['threshold']
-        best_score = best_trial.value
         
         print(f"\nMejores hiperparámetros para cluster {cl}:")
-        print(f"  emotion_weight = {best_ew:.4f}")
-        print(f"  neutral_point  = {best_np:.4f}")
+        if optimize_logits:
+            print(f"  emotion_weight = {best_ew:.4f}")
+            print(f"  neutral_point  = {best_np:.4f}")
         print(f"  threshold      = {best_thr:.4f}")
-        print(f"  Mejor {metric_to_optimize} = {best_score:.4f}")
-        print(f"Cluster {cl} optimizado: {metric_to_optimize}={study.best_value:.4f}")
 
-        # Asignar los hiperparámetros a todos los modelos de este cluster
         model_base._assign_hyperparams_to_models(cl, best_ew, best_np, best_thr)
-    print("\n[Optuna] Optimización finalizada exitosamente.")
