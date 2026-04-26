@@ -1,6 +1,7 @@
 import numpy as np
 from typing import List, Tuple, Dict
-from models.baum_welch import BaumWelchREBKT
+from .baum_welch import BaumWelchREBKT
+
 class REBKT:
     """
     Representa el modelo BKT Extendido para una habilidad específica.
@@ -34,6 +35,9 @@ class REBKT:
                 if final_ll > best_ll:
                     best_ll = final_ll
                     best_model = tmp_bw
+                    
+        if best_model is None:
+            best_model = tmp_bw
 
         self.baum_welch = best_model
         self.params = self.baum_welch.get_params()

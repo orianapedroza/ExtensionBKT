@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from typing import List, Tuple, Dict, Union, Any, Optional
-from models.re_bkt import REBKT
+#from models.re_bkt import REBKT
 from utils.metrics import compute_metrics, plot_confusion_matrix
 
 class ModelBase:
@@ -55,6 +55,14 @@ class ModelBase:
 
                 #print(f"\n--- Entrenando para {skill_name} / clúster {cl} ---")
                 rebkt = REBKT(skill_name=f"{skill_name}_cl{cl}", seed=self.seed)
+
+                #Revisar si ya se tienen los hiperparametros optimizados
+                if cl in self.cluster_configs:
+                  config = self.cluster_configs[cl]
+                  rebkt.emotion_weight = config['emotion_weight']
+                  rebkt.neutral_point = config['neutral_point']
+                  rebkt.threshold = config['threshold']
+
                 rebkt.fit(observations_list)
 
                 self.models[(skill_name, cl)] = rebkt
@@ -243,6 +251,13 @@ class ModelBase:
 
     def _assign_hyperparams_to_models(self, cluster: int, emotion_weight: float, neutral_point: float, threshold: float):
         """Asigna los hiperparámetros a todos los modelos de un cluster."""
+
+        self.cluster_configs[cluster] = {
+            'emotion_weight': emotion_weight,
+            'neutral_point': neutral_point,
+            'threshold': threshold
+        }
+
         for (skill_name, cl), model in self.models.items():
             if cl == cluster:
                 model.emotion_weight = emotion_weight

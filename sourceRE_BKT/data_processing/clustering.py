@@ -11,6 +11,8 @@ class StudentClustered:
     def __init__(self, n_clusters=2):
         self.n_clusters = n_clusters
         self.emotions = ['frustrated', 'confused', 'concentrating', 'bored']
+        np.random.seed(42)
+        self.filtered_raw_df = None
 
     def extract_features(self, df, strategy='global'):
         """
@@ -23,21 +25,60 @@ class StudentClustered:
         # Filtrado según estrategia
         if strategy == 'global':
             # Caso 1: Estudiantes con al menos 6 interacciones
-            counts = df.groupby('user_id').size()
-            valid_users = counts[counts >= 6].index
-            filtered_df = df[df['user_id'].isin(valid_users)]
+            skill_user_counts = df.groupby(['user_id', 'skill']).size()
+            valid_combos = skill_user_counts[skill_user_counts >= 6].index
+            if len(valid_combos) == 0:
+                filtered_df = pd.DataFrame(columns=df.columns)
+            else:
+                valid_df = pd.DataFrame(valid_combos.tolist(), columns=['user_id', 'skill'])
+                filtered_df = df.merge(valid_df, on=['user_id', 'skill'])
+                # Mostrar información del filtrado
+            print(f"Global: se conservaron {filtered_df['user_id'].nunique()} usuarios, {filtered_df['skill'].nunique()} habilidades.")
+       
         elif strategy == 'sampled':
             # Caso 2: 25 estudiantes por habilidad, solo sus primeras 6 interacciones
             def sample_logic(skill_group):
-                # Obtener 25 usuarios únicos de esta habilidad
-                users = skill_group['user_id'].unique()
-                selected_users = users[:25] # O usar np.random.choice para aleatoriedad
+                user_counts = skill_group.groupby('user_id').size()
+                valid_users = user_counts[user_counts == 6].index
+                n_valid = len(valid_users)
                 
-                # De esos usuarios, tomar solo sus primeras 6 interacciones
-                subset = skill_group[skill_group['user_id'].isin(selected_users)]
-                return subset.groupby('user_id').head(6)
+                if n_valid < 25:
+                    return pd.DataFrame(columns=skill_group.columns)  # vacío
+                else:
+                    # Seleccionar aleatoriamente 25 usuarios
+                    selected = np.random.choice(valid_users, size=25, replace=False)
+                    return skill_group[skill_group['user_id'].isin(selected)]
+            
+            # Aplicar a cada skill y concatenar resultados no vacíos
+            filtered_dfs = []
+            for skill, group in df.groupby('skill'):
+                skill_subset = sample_logic(group)
+                if not skill_subset.empty:
+                    filtered_dfs.append(skill_subset)
+            
+            if not filtered_dfs:
+                filtered_df = pd.DataFrame(columns=df.columns)
+            else:
+                filtered_df = pd.concat(filtered_dfs, ignore_index=True)
                 
-            filtered_df = df.groupby('skill', group_keys=False).apply(sample_logic)
+            # Verificar que efectivamente cada skill tiene 25 usuarios y cada usuario 6 filas
+            if not filtered_df.empty:
+                print("Muestreo completado. Skills incluidos:")
+                for skill, group in filtered_df.groupby('skill'):
+                    n_users = group['user_id'].nunique()
+                    # Verificar que cada usuario tiene 6 filas
+                    rows_per_user = group.groupby('user_id').size()
+                    assert all(rows_per_user == 6), f"Error: Usuario en skill {skill} no tiene exactamente 6 filas."
+                    print(f"  Skill '{skill}': {n_users} usuarios (cada uno con 6 interacciones)")
+
+        else:
+            raise ValueError("Estrategia no reconocida. Use 'global' o 'sampled'")
+
+        self.filtered_raw_df = filtered_df.copy() if not filtered_df.empty else None
+
+        if filtered_df.empty:
+            print("Advertencia: No hay datos después del filtrado.")
+            return pd.DataFrame()         
 
         # Calculo de características
         features = []
