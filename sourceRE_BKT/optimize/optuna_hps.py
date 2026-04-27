@@ -113,8 +113,8 @@ def optimize_hyperparameters(model_base: ModelBase,
 
         #Asignar los mejores valores encontrados al ModelBase
         best_trial = study.best_trial
-        best_ew = best_trial.params['emotion_weight']
-        best_np = best_trial.params['neutral_point']
+        best_ew = best_trial.params.get('emotion_weight', 1.0)
+        best_np = best_trial.params.get('neutral_point', 0.5)
         best_thr = best_trial.params['threshold']
         
         print(f"\nMejores hiperparámetros para cluster {cl}:")
