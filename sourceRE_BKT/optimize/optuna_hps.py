@@ -4,8 +4,8 @@ import pandas as pd
 from typing import Optional, Dict
 from sklearn.metrics import roc_auc_score, recall_score, precision_score, confusion_matrix
 
-#from fit.model_base import ModelBase
-#from utils.metrics import compute_metrics
+from fit.model_base import ModelBase
+from utils.metrics import compute_metrics
 
 def optimize_hyperparameters(model_base: ModelBase, 
                              test_data: pd.DataFrame, 
