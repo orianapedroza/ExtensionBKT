@@ -112,7 +112,7 @@ Integra ambos enfoques anteriores. Utiliza la **matriz de observación 2×4** de
 !pip install optuna seaborn scikit-learn gdown
 ```
 
-**Configurar el entorno en Colab/Jupiter:**
+**Configurar el entorno en Colab/Jupyter:**
 
 ```python
 import os
@@ -171,11 +171,19 @@ A diferencia del BKT tradicional, RE-BKT agrupa a los estudiantes basándose en 
 clusterer = StudentClustered(n_clusters=2)
 
 # Caracterizar estudiantes y aplicar K-Means
-feature_df = clusterer.extract_features(df_clean)
-feature_df, X_scaled = clusterer.run_clustering(feature_df)
+#Ejecutando Caso 1 (Estrategia: 'global')
+features_global = clusterer.extract_features(df_clean, strategy='global')
+
+print(f"Usuarios procesados (Global): {len(features_global)}")
+
+#Aplicando K-Means
+features_global_clustered, X_scaled_global = clusterer.run_clustering(features_global)
 
 # Dividir el dataset por usuario (Train 80% / Test 20%)
-train_df, test_df = clusterer.assign_and_split(df_clean, feature_df, test_size=0.2)
+filtered_data_global = clusterer.filtered_raw_df
+
+train_df_global, test_df_global = clusterer.assign_and_split(filtered_data_global, features_global_clustered, test_size=0.2)
+
 ```
 
 ---
@@ -185,10 +193,11 @@ El núcleo de la biblioteca permite entrenar los modelos separando automáticame
 
 ```python
 from fit import ModelBase
+from models import REBKT_Internal, REBKT_External, REBKT_Hybrid
 
-# Seleccionar enfoque: 'internal' | 'external' | 'hybrid'
-modelo = ModelBase(seed=42, cluster_col='cluster', approach='hybrid')
-modelo.fit(train_df)
+# Seleccionar enfoque: 'REBKT_Internal' | 'REBKT_External' | 'REBKT_Hybrid'
+gestor = ModelBase(model_class=REBKT_External, seed=42, cluster_col='cluster')
+modelo.fit(train_df_global)
 ```
 
 ---
@@ -199,13 +208,13 @@ modelo.fit(train_df)
 from optimize import optimize_hyperparameters
 
 # Enfoque 2 y 3: asignar ω (emotion_weight) y η (neutral_point)
-modelo._assign_hyperparams_to_models(cluster=0, emotion_weight=0.9071, neutral_point=0.7970, threshold=0.5282)
-modelo._assign_hyperparams_to_models(cluster=1, emotion_weight=2.3075, neutral_point=0.3342, threshold=0.8582)
+gestor._assign_hyperparams_to_models(cluster=0, emotion_weight=1.0190, neutral_point=0.4733, threshold=0.3535)
+gestor._assign_hyperparams_to_models(cluster=1, emotion_weight=1.3855, neutral_point=0.2725, threshold=0.5000)
 ```
 
 ```python
 # Predecir probabilidades de conocimiento
-predicciones = modelo.predict(test_df)
+test_with_preds = gestor.predict(test_df_global)
 ```
 
 ---
@@ -216,24 +225,11 @@ El módulo de utilidades incluye herramientas diseñadas para la evaluación rig
 ```python
 from utils import plot_confusion_matrix
 
-metricas = modelo.evaluate(predicciones, by_cluster=True)
+metricas = gestor.evaluate(test_with_preds, by_cluster=True)
+print(metricas)
 
-df_eval = predicciones.dropna(subset=['prediction'])
-clusters_unicos = df_eval['cluster'].unique()
-
-for cl in clusters_unicos:
-    datos_cluster = df_eval[df_eval['cluster'] == cl]
-    ejemplo_skill = test_df[test_df['cluster'] == cl]['skill'].iloc[0]
-    threshold_guardado = modelo.models[(ejemplo_skill, cl)].threshold
-
-    print(f"Generando matriz para Clúster {cl}...")
-    plot_confusion_matrix(
-        y_true=datos_cluster['correct'],
-        y_pred=datos_cluster['prediction'],
-        threshold=threshold_guardado,
-        title=f"Matriz RE-BKT - Clúster {cl}",
-        filename=f"matriz_cluster_{cl}.png"
-    )
+test_with_preds.to_csv('preds_2017_Global_External.csv', index=False)
+print("✓ Predicciones guardadas exitosamente.")
 ```
 ---
 ## Autoría
