@@ -51,10 +51,10 @@ El proyecto está dividido en el código fuente (herramientas) y los cuadernos d
 
 ```text
 ExtensionBKT/
-├── notebooks/                                  # Cuadernos de experimentación y manuales
+├── notebooks/                                 
 │   ├── ASSISTments_Data_Preparation.ipynb      # Carga, limpieza y clustering de usuarios
 │   └── Evaluacion_Base_PyBKT.ipynb             # Entrenamiento y evaluación (PyBKT vs RE-BKT)
-├── sourceRE_BKT/                               # Código fuente de la biblioteca RE-BKT
+├── sourceRE_BKT/                               
 │   ├── data_processing/                        # EDA
 │   │   ├── __init__.py
 │   │   ├── clustering.py                       # Identificación de perfiles con K-Means
@@ -62,19 +62,6 @@ ExtensionBKT/
 │   ├── fit/                                    # Controladores de Entrenamiento
 │   │   ├── __init__.py
 │   │   └── model_base.py                       # Clase integradora
-│   ├── models/                                 # Implementación matemática ```text
-ExtensionBKT/
-├── notebooks/                                  # Cuadernos de experimentación y manuales
-│   ├── ASSISTments_Data_Preparation.ipynb      # Carga, limpieza y clustering de usuarios
-│   └── Evaluacion_Base_PyBKT.ipynb             # Entrenamiento y evaluación (PyBKT vs RE-BKT)
-├── sourceRE_BKT/                               # Código fuente de la biblioteca RE-BKT
-│   ├── data_processing/                        # EDA y preparación de datos
-│   │   ├── __init__.py
-│   │   ├── clustering.py                       # Identificación de perfiles con K-Means
-│   │   └── data_loader.py                      # Limpieza para ASSISTments 2012/2017
-│   ├── fit/                                    # Controladores de Entrenamiento
-│   │   ├── __init__.py
-│   │   └── model_base.py                       # Clase integradora (selecciona el enfoque activo)
 │   ├── models/                                 # Implementación matemática de los tres enfoques
 │   │   ├── __init__.py
 │   │   ├── emotion_external/                   # Enfoque 2: emoción en la predicción (logística)
@@ -88,11 +75,11 @@ ExtensionBKT/
 │   │   └── emotion_internal/                   # Enfoque 1: emoción en el nodo de observación
 │   │       ├── __init__.py
 │   │       └── re_bkt.py                       # Matriz B 2×4, inferencia y predicción extendidas
-│   ├── optimize/                               # Tuning de hiperparámetros
+│   ├── optimize/                               
 │   │   ├── __init__.py
 │   │   └── optuna_hps.py                       # Optimización de ω, η y umbral vía Optuna
 │   ├── test/
-│   └── utils/                                  # Herramientas auxiliares y estadísticas
+│   └── utils/                                  # Herramientas estadísticas
 │       ├── __init__.py
 │       └── metrics.py                          # Precisión, Sensibilidad, Especificidad, Exactitud, RMSE, F1-Score, AUC
 ├── README.md
