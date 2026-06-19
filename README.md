@@ -1,8 +1,9 @@
 # RE-BKT: EXTENSIÓN DEL “BAYESIAN KNOWLEDGE TRACING” PARA LA INCORPORACIÓN DE EMOCIONES 
 
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
-![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-orange.svg)
+![Google Colab](https://img.shields.io/badge/Environment-Google%20Colab-orange?logo=googlecolab&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-En%20Desarrollo-success.svg)
+
 
 ## Descripción del Proyecto
 
