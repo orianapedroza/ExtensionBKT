@@ -9,7 +9,7 @@
 Este repositorio contiene el código fuente y los notebooks del proyecto de grado:*"Extensión del Bayesian Knowledge Tracing (BKT) para la incorporación de emociones"*. El objetivo principal es desarrollar y validar las tres arquitecturas de extensión del BKT que incorporan datos emocionales, presentado como **RE-BKT (Respuesta Emocional - BKT)**.
 
 | Enfoque | Nombre | Descripción |
-|---|---|---|
+|----|---|---|
 | **Enfoque 1** | Dato emocional en el nodo de observación | Expande la matriz de observación B a 2×4, combinando respuesta (Incorrecto / Correcto) y estado emocional (Concentrado / No Concentrado) para actualizar el conocimiento latente. |
 | **Enfoque 2** | Dato emocional en la predicción | Mantiene el BKT clásico intacto y modula la probabilidad de acierto mediante una función logística que utiliza el valor continuo de concentración, optimizando los hiperparámetros ω (peso emocional) y η (punto neutro) con Optuna. |
 | **Enfoque 3** | Híbrido | Combina ambos enfoques: usa la matriz extendida 2×4 del Enfoque 1 para actualizar el conocimiento latente y aplica la modulación logística del Enfoque 2 para la predicción del rendimiento futuro. |
