@@ -6,15 +6,21 @@
 
 ## Descripción del Proyecto
 
-Este repositorio contiene el código fuente y los notebooks del proyecto de grado titulado *"Extensión del Bayesian Knowledge Tracing (BKT) para la incorporación de emociones"*. El objetivo principal es desarrollar y validar el modelo **RE-BKT (Respuesta Emocional - BKT)**, una extensión del modelo clásico BKT que integra el estado emocional del estudiante como variable informativa en la inferencia del dominio de habilidades.
+Este repositorio contiene el código fuente y los notebooks del proyecto de grado:*"Extensión del Bayesian Knowledge Tracing (BKT) para la incorporación de emociones"*. El objetivo principal es desarrollar y validar las tres arquitecturas de extensión del BKT que incorporan datos emocionales, presentado como **RE-BKT (Respuesta Emocional - BKT)**.
+
+| Enfoque | Nombre | Descripción |
+|---|---|---|
+| **Enfoque 1** | Dato emocional en el nodo de observación | Expande la matriz de observación B a 2×4, combinando respuesta (Incorrecto / Correcto) y estado emocional (Concentrado / No Concentrado) para actualizar el conocimiento latente. |
+| **Enfoque 2** | Dato emocional en la predicción | Mantiene el BKT clásico intacto y modula la probabilidad de acierto mediante una función logística que utiliza el valor continuo de concentración, optimizando los hiperparámetros ω (peso emocional) y η (punto neutro) con Optuna. |
+| **Enfoque 3** | Híbrido | Combina ambos enfoques: usa la matriz extendida 2×4 del Enfoque 1 para actualizar el conocimiento latente y aplica la modulación logística del Enfoque 2 para la predicción del rendimiento futuro. |
 
 ### Características principales
 
-- **Segmentación de perfiles emocionales:** Mediante clustering no supervisado (K-Means), se identifican dos perfiles estudiantiles basados en emociones auto-reportadas: concentración, frustración, aburrimiento y confusión.
+- **Segmentación de perfiles emocionales:** Mediante clustering (K-Means), se identifican dos perfiles estudiantiles a partir de un vector de trece características a partir de los datos estadísticos entre cada emoción y la respuesta correcta, por ejemplo: tasa de aciertos, los coeficientes de correlación Punto-Biserial entre respuesta y emoción, desviación estandar y media.
 
-- **Incorporación de la concentración:** La variable de concentración se integra en la función de probabilidad de respuesta correcta mediante una transformación logística, mejorando la capacidad predictiva.
+- **Incorporación de la concentración:** La variable de concentración se integra de forma discreta (Concentrado / No Concentrado) en la matriz de observación para los enfoques 1 y 3, y de forma continua mediante una función logística en los enfoques 2 y 3.
 
-- **Personalización por clúster:** Los hiperparámetros de modulación emocional (peso emocional, punto neutro, umbral de decisión) se optimizan independientemente para cada perfil mediante Optuna.
+- **Personalización por clúster:** Cada enfoque entrena una instancia del modelo por combinación de habilidad y clúster. Los hiperparámetros de modulación emocional (peso emocional ω, punto neutro η y el umbral de concentración) se optimizan independientemente para cada perfil mediante Optuna.
 
 - **Validación en datasets públicos:** Los experimentos se realizan sobre los conjuntos de datos **ASSISTments 2012-2013** y **ASSISTments Challenge 2017**, ampliamente utilizados en minería de datos educativos.
 
@@ -40,7 +46,7 @@ Las dependencias principales incluyen:
 ---
 ## Arquitectura del Repositorio
 
-El proyecto está dividido en el código fuente (herramientas) y los cuadernos de experimentación (análisis):
+El proyecto está dividido en el código fuente (herramientas) y los cuadernos de experimentación (análisis). El módulo `models/` contiene tres sub-paquetes, uno por cada enfoque del RE-BKT:
 
 ```text
 ExtensionBKT/
@@ -55,30 +61,72 @@ ExtensionBKT/
 │   ├── fit/                                    # Controladores de Entrenamiento
 │   │   ├── __init__.py
 │   │   └── model_base.py                       # Clase integradora
-│   ├── models/                                 # Implementación matemática 
+│   ├── models/                                 # Implementación matemática ```text
+ExtensionBKT/
+├── notebooks/                                  # Cuadernos de experimentación y manuales
+│   ├── ASSISTments_Data_Preparation.ipynb      # Carga, limpieza y clustering de usuarios
+│   └── Evaluacion_Base_PyBKT.ipynb             # Entrenamiento y evaluación (PyBKT vs RE-BKT)
+├── sourceRE_BKT/                               # Código fuente de la biblioteca RE-BKT
+│   ├── data_processing/                        # EDA y preparación de datos
 │   │   ├── __init__.py
-│   │   ├── baum_welch.py                       # Ajuste de Expectativa-Maximización (EM)
-│   │   └── re_bkt.py                           # Definición del modelo extendido con emociones
+│   │   ├── clustering.py                       # Identificación de perfiles con K-Means
+│   │   └── data_loader.py                      # Limpieza para ASSISTments 2012/2017
+│   ├── fit/                                    # Controladores de Entrenamiento
+│   │   ├── __init__.py
+│   │   └── model_base.py                       # Clase integradora (selecciona el enfoque activo)
+│   ├── models/                                 # Implementación matemática de los tres enfoques
+│   │   ├── __init__.py
+│   │   ├── emotion_external/                   # Enfoque 2: emoción en la predicción (logística)
+│   │   │   ├── __init__.py
+│   │   │   ├── baum_welch.py                   # Algoritmo EM con espacio de observación 2×2
+│   │   │   └── re_bkt.py                       # Modulación logística de P(C) con ω y η
+│   │   ├── emotion_hybrid/                     # Enfoque 3: híbrido (observación + predicción)
+│   │   │   ├── __init__.py
+│   │   │   ├── baum_welch.py                   # Algoritmo EM con espacio de observación 2×4
+│   │   │   └── re_bkt.py                       # Inferencia 2×4 + modulación logística continua
+│   │   └── emotion_internal/                   # Enfoque 1: emoción en el nodo de observación
+│   │       ├── __init__.py
+│   │       └── re_bkt.py                       # Matriz B 2×4, inferencia y predicción extendidas
 │   ├── optimize/                               # Tuning de hiperparámetros
 │   │   ├── __init__.py
-│   │   └── optuna_hps.py                       # Optimización de umbrales y métricas vía Optuna
-│   ├── test/                                   
+│   │   └── optuna_hps.py                       # Optimización de ω, η y umbral vía Optuna
+│   ├── test/
 │   └── utils/                                  # Herramientas auxiliares y estadísticas
 │       ├── __init__.py
 │       └── metrics.py                          # Precisión, Sensibilidad, Especificidad, Exactitud, RMSE, F1-Score, AUC
-├── README.md                                   
-
+├── README.md
 ```
+---
+## Descripción de los Tres Enfoques
+
+### Enfoque 1 — Dato emocional en el nodo de observación (`emotion_internal`)
+
+El espacio de observaciones del HMM se expande de 2×2 a **2×4**, generando cuatro observaciones compuestas por paso de tiempo: *Incorrecto y Concentrado* (O₁), *Incorrecto y No Concentrado* (O₂), *Correcto y Concentrado* (O₃) y *Correcto y No Concentrado* (O₄). La categorización entre concentrado/no concentrado se realiza mediante un umbral optimizado por clúster. La matriz de observación **B** (2×4) se estima mediante el algoritmo Baum-Welch con diez parámetros, y la inferencia bayesiana del conocimiento latente opera directamente sobre estas observaciones contextualizadas. La predicción de rendimiento marginaliza sobre los estados emocionales.
+
+> **Parámetros estimados:** P(L₀), P(T), P(ICNDom), P(INCNDom), P(CCNDom), P(CNCNDom), P(ICDom), P(INCDom), P(CCDom), P(CNCDom)
+
+### Enfoque 2 — Dato emocional en la predicción (`emotion_external`)
+
+Mantiene la estructura del BKT clásico con matriz **B** de 2×2 y sus parámetros estándar P(G) y P(S). La extensión se encuentra en la **fase de predicción**: la probabilidad base de acierto (calculada con los parámetros clásicos) se transforma al espacio de log-odds y se modula con el valor continuo de concentración cₜ ∈ [0,1] mediante una función logística. Los hiperparámetros ω (peso emocional) y η (punto neutro) se optimizan por clúster con Optuna.
+
+> **Parámetros estimados:** P(L₀), P(T), P(G), P(S) · **Hiperparámetros optimizados:** ω ∈ [0,5], η ∈ [0,1]
+
+### Enfoque 3 — Híbrido (`emotion_hybrid`)
+
+Integra ambos enfoques anteriores. Utiliza la **matriz de observación 2×4** del Enfoque 1 para una actualización del conocimiento latente enriquecida con el contexto emocional discreto, y aplica la **modulación logística continua** del Enfoque 2 para la predicción del rendimiento. El entrenamiento consta de dos fases: primero se estiman los diez parámetros estructurales con Baum-Welch sobre el espacio 2×4, y luego se optimizan ω y η con Optuna sobre el conjunto de prueba.
+
+> **Parámetros estimados:** los mismos diez del Enfoque 1 · **Hiperparámetros optimizados:** ω y η (como en Enfoque 2)
+
 ---
 ## Instalación y Configuración
 
-```
+```bash
 !pip install optuna seaborn scikit-learn gdown
 ```
 
 **Configurar el entorno en Colab/Jupiter:**
 
-```
+```python
 import os
 import sys
 
@@ -117,9 +165,9 @@ Este proyecto procesa datos de interacción de las siguientes competiciones púb
 El siguiente es un guía sobre cómo empezar con RE-BKT. Los formatos de entrada aceptados son archivos de datos de ASSISTments (2012 o 2017).
 
 ### 1. Procesamiento de los datos
-RE-BKT incluye un módulo robusto para homogenizar columnas, manejar valores nulos y filtrar inconsistencias temporales automáticamente.
+RE-BKT incluye un módulo robusto para homogenizar columnas, manejar valores nulos y filtrar inconsistencias temporales automáticamente. Cada estudiante requiere un mínimo de 6 registros por habilidad para garantizar la convergencia fiable del algoritmo Baum-Welch.
 
-```
+```python
 from data_processing import DataLoader, StudentClustered
 
 # Normalizar y Filtrar datos (ASSISTments 2017)
@@ -131,7 +179,7 @@ df_clean = loader.clean_2017('ruta/a/ASSISTments_2017.csv')
 
 A diferencia del BKT tradicional, RE-BKT agrupa a los estudiantes basándose en sus respuestas emocionales utilizando K-Means y validación por correlación Punto-Biserial.
 
-```
+```python
 clusterer = StudentClustered(n_clusters=2)
 
 # Caracterizar estudiantes y aplicar K-Means
@@ -143,31 +191,31 @@ train_df, test_df = clusterer.assign_and_split(df_clean, feature_df, test_size=0
 ```
 
 ---
-### 3. Entrenamiento (Algoritmo Baum Welch)
+### 3. Entrenamiento (Algoritmo Baum-Welch)
 
-El núcleo de la biblioteca permite entrenar los modelos separando automáticamente las lógicas por clúster e integrando la optimización de hiperparámetros.
+El núcleo de la biblioteca permite entrenar los modelos separando automáticamente las lógicas por clúster. Se selecciona el enfoque deseado al instanciar `ModelBase`. El algoritmo itera entre el Paso E (Forward-Backward) y el Paso M (re-estimación de parámetros) hasta que la diferencia en log-verosimilitud entre iteraciones es menor que 1×10⁻⁴.
 
-```
+```python
 from fit import ModelBase
 
-# Inicializar y ajustar el modelo usando el set de entrenamiento
-modelo = ModelBase(seed=42, cluster_col='cluster')
+# Seleccionar enfoque: 'internal' | 'external' | 'hybrid'
+modelo = ModelBase(seed=42, cluster_col='cluster', approach='hybrid')
 modelo.fit(train_df)
-
 ```
 
 ---
 ### 4. Predicción
 
-*Podemos asignar los valores a los hiperparámetros si ya los conocemos*
-```
+*Se pueden asignar los hiperparámetros directamente si ya se conocen de una optimización previa:*
+```python 
 from optimize import optimize_hyperparameters
 
+# Enfoque 2 y 3: asignar ω (emotion_weight) y η (neutral_point)
 modelo._assign_hyperparams_to_models(cluster=0, emotion_weight=0.9071, neutral_point=0.7970, threshold=0.5282)
 modelo._assign_hyperparams_to_models(cluster=1, emotion_weight=2.3075, neutral_point=0.3342, threshold=0.8582)
 ```
 
-```
+```python
 # Predecir probabilidades de conocimiento
 predicciones = modelo.predict(test_df)
 ```
@@ -177,13 +225,12 @@ predicciones = modelo.predict(test_df)
 
 El módulo de utilidades incluye herramientas diseñadas para la evaluación rigurosa del rendimiento predictivo (Precisión, Sensibilidad, Especificidad, Exactitud, RMSE, F1-Score, AUC) frente a BKT tradicional.
 
-```
+```python
 from utils import plot_confusion_matrix
 
 metricas = modelo.evaluate(predicciones, by_cluster=True)
 
 df_eval = predicciones.dropna(subset=['prediction'])
-
 clusters_unicos = df_eval['cluster'].unique()
 
 for cl in clusters_unicos:
